@@ -1,15 +1,27 @@
 %include "macros.inc"
 
-extern fscanf
-
 extern PLANE
 extern SHIP
 extern TRAIN
 
+extern fscanf
+extern printf
+
+extern InPlane
+extern InShip
+extern InTrain
+extern InRndPlane
+extern InRndShip
+extern InRndTrain
+extern OutPlane
+extern OutShip
+extern OutTrain
+
 global InTransport
 InTransport:
 section .data
-    .typefmt db  "%d", 0x0
+    .tagfmt     db  "%d", 0x0
+    .typefmt    db  "%d%d%d", 0x0
 section .bss
     .tport  resq    1
     .istr   resq    1
@@ -20,113 +32,187 @@ section .text
     mov     [.tport], rdi
     mov     [.istr], rsi
     
-    NumReadFromStream [.istr], [.tport]
+    mov     rdi, [.istr]
+    mov     rsi, .typefmt
+    mov     rdx, [.tport]
+    mov     rcx, [.tport]
+    add     rcx, 4
+    mov     r8, [.tport]
+    add     r8, 8
+    mov     rax, 0
+    call    fscanf
     
     mov     rcx, [.tport]
     mov     eax, [rcx]
     
     cmp     eax, [PLANE]
-    je      _planeInput
+    je      .planeInput
     
     cmp     eax, [SHIP]
-    je      _shipInput
+    je      .shipInput
     
     cmp     eax, [TRAIN]
-    je      _trainInput
+    je      .trainInput
     
     xor     rax, rax
-    jmp     _return
-_planeInput:
+    jmp     .return
+.planeInput:
     mov     rdi, [.tport]
-    add     rdi, 4
+    add     rdi, 12
     mov     rsi, [.istr]
     call    InPlane
     
     mov     rax, 1
-    jmp     _return
-_shipInput:
+    jmp     .return
+.shipInput:
     mov     rdi, [.tport]
-    add     rdi, 4
+    add     rdi, 12
     mov     rsi, [.istr]
     call    InShip
     
     mov     rax, 1
-    jmp     _return
-_trainInput:
+    jmp     .return
+.trainInput:
     mov     rdi, [.tport]
-    add     rdi, 4
+    add     rdi, 12
     mov     rsi, [.istr]
     call    InTrain
     
     mov     rax, 1
-    jmp     _return
-_return:
+    jmp     .return
+.return:
 leave
 ret
 
-global InPlane
-InPlane:
-section .data
-    .readfmt    db  "%d%d", 0x0
+global InRndTransport
+InRndTransport:
 section .bss
-    .plane      resq    1
-    .istr       resq    1
+    .tport  resq    1
+    .key    resd    1
 section .text
     push    rbp
     mov     rbp, rsp
     
-    mov     [.plane], rdi
-    mov     [.istr], rsi
+    mov     [.tport], rdi
     
-    mov     rdi, [.istr]
-    mov     rsi, .readfmt
-    mov     rdx, [.plane]
-    mov     rcx, [.plane]
-    add     rcx, 4
+    mov     rdi, 1
+    mov     rsi, 3
+    xor     eax, eax
+    call    RandInBounds
+    
+    mov     rdi, [.tport]
+    mov     [rdi], eax
+    mov     [.key], eax
+    
+    mov     rdi, 100
+    mov     rsi, 700
+    xor     eax, eax
+    call    RandInBounds
+    
+    mov     rdi, [.tport]
+    add     rdi, 4
+    mov     [rdi], eax
+    
+    mov     rdi, 500
+    mov     rsi, 3000
+    xor     eax, eax
+    call    RandInBounds
+    
+    mov     rdi, [.tport]
+    add     rdi, 8
+    mov     [rdi], eax
+    
+    xor     eax, eax
+    mov     eax, [.key]
+    
+    cmp     eax, [PLANE]
+    je      .planeGen
+    
+    cmp     eax, [SHIP]
+    je      .shipGen
+    
+    cmp     eax, [TRAIN]
+    je      .trainGen
+    
+    PrintInt [.key], [stdout]
     xor     rax, rax
-    call    fscanf
+    jmp     .return
+.planeGen:
+    mov     rdi, [.tport]
+    add     rdi, 12
+    call    InRndPlane
     
+    mov     rax, 1
+    jmp     .return
+.shipGen:
+    mov     rdi, [.tport]
+    add     rdi, 12
+    call    InRndShip
+    
+    mov     rax, 1
+    jmp     .return
+.trainGen:
+    mov     rdi, [.tport]
+    add     rdi, 12
+    call    InRndTrain
+    
+    mov     rax, 1
+    jmp     .return
+.return:
 leave
 ret
 
-global InShip
-InShip:
+global OutTransport
+OutTransport:
 section .data
-    .readfmt    db  "%d%d", 0x0
-section .bss
-    .ship       resq    1
-    .istr       resq    1
+    .error  db  "Invalid transport type.", 0xa, 0x0
 section .text
     push    rbp
     mov     rbp, rsp
     
-    mov     [.ship], rdi
-    mov     [.istr], rsi
+    mov     eax, [rdi]
     
-    mov     rdi, [.istr]
-    mov     rsi, .readfmt
-    mov     rdx, [.ship]
-    mov     rcx, [.ship]
-    add     rcx, 4
+    cmp     eax, [PLANE]
+    je      .planeOut
+    
+    cmp     eax, [SHIP]
+    je      .shipOut
+    
+    cmp     eax, [TRAIN]
+    je      .trainOut
+    
+    mov     rdi, .error
     xor     rax, rax
-    call    fscanf
+    call    printf
+.planeOut:
+    add     rdi, 4
+    call    OutPlane
     
+    jmp     .return
+.shipOut:
+    add     rdi, 4
+    call    OutShip
+    
+    jmp     .return
+.trainOut:
+    add     rdi, 4
+    call    OutTrain
+    
+    jmp     .return
+.return:
 leave
 ret
 
-global InTrain
-InTrain:
-section .bss
-    .train      resq    1
-    .istr       resq    1
+global DistToDest
+DistToDest:
+section .data
+    fmt db  "%lf", 0xa, 0x0
 section .text
     push    rbp
     mov     rbp, rsp
-    
-    mov     [.train], rdi
-    mov     [.istr], rsi
-    
-    NumReadFromStream [.istr], [.train]
-    
+
+    cvtsi2sd    xmm0, dword[rdi+4]
+    cvtsi2sd    xmm1, dword[rdi]
+    divsd       xmm0, xmm1
 leave
-ret
+ret 
